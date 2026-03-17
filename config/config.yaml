@@ -1,0 +1,71 @@
+GLOBAL:
+  DATASET_ROOT: /home/ali/Projects/datasets/JRDB_2022 # Root directory of the JRDB 2022 dataset
+  JRDB_IMAGES_DIR: train/images # JRDB source images directory (relative to DATASET_ROOT)
+  JRDB_LABELS_2D_DIR: train/labels/labels_2d # JRDB 2D detection labels in JSON format
+  JRDB_LABELS_POSE_DIR: train/labels/labels_2d_pose_coco # JRDB 2D pose labels in COCO JSON format
+  JRDB_LABELS_HEAD_DIR: train/labels/labels_2d_head # JRDB head/face labels in COCO JSON format
+  YOLO_IMAGES_DIR: results/yolo_images # Output directory for flattened YOLO-format images
+  YOLO_DETECTION_LABELS_DIR: results/yolo_detection_labels # Output directory for YOLO detection label .txt files
+  YOLO_POSE_LABELS_DIR: results/yolo_pose_labels # Output directory for YOLO pose label .txt files
+  YOLO_FACE_LABELS_DIR: results/yolo_face_labels # Output directory for YOLO face label .txt files
+  SAMPLE_EVERY: 20 # Keep every Nth frame when subsampling (e.g. 20 = keep 1 of every 20 frames)
+  DEVICE: "0" # CUDA device ID for GPU inference (e.g. "0" for first GPU)
+  BATCH_SIZE: 16 # Default batch size for inference tasks
+  CONF_THRESHOLD: 0.25 # Default confidence threshold for model predictions
+  ULTRALYTICS_SOURCE_PATH: /home/ali/Projects/GitHub_Code/open_source/ultralytics # Path to ultralytics source code (needed for raw torch model unpickling)
+
+MODELS:
+  DETECTION: /home/ali/Projects/GitHub_Code/open_source/ultralytics/yolo11x.pt # COCO 80-class detection model (absolute path)
+  FACE: yolov11l-face.pt # Face detection model (relative to DATASET_ROOT)
+  POSE: /home/ali/Projects/GitHub_Code/open_source/ultralytics/yolo11x-pose.pt # Pose estimation model with 17 COCO keypoints (absolute path)
+
+TASKS:
+  CONVERT_LABELS: # Stage 1: Convert JRDB JSON labels to YOLO .txt format (detection + pose + face)
+    ENABLED: true # Whether to run this task in the pipeline
+    ORDER: 1 # Execution order (lower runs first)
+  GENERATE_IMAGES: # Stage 2: Flatten JRDB multi-camera images into a single YOLO-format directory
+    ENABLED: true
+    ORDER: 2
+    SYMLINK: true # Use symlinks instead of copying files (saves disk space)
+  SAMPLE_DATASET: # Stage 3: Subsample every Nth frame to create a smaller dataset
+    ENABLED: true
+    ORDER: 3
+    EVERY: 20 # Keep every Nth frame per video sequence (overrides GLOBAL.SAMPLE_EVERY)
+    SYMLINK: false # Use symlinks instead of copying files
+  MERGE_COCO_LABELS: # Stage 4: Run COCO 80-class inference and merge non-person detections with person labels
+    ENABLED: true
+    ORDER: 4
+    IOU_THRESHOLD: 0.45 # IoU threshold for non-max suppression during COCO inference
+    IMG_SIZE: 640 # Input image size for COCO detection inference
+  FILTER_OCCLUDED: # Stage 5: Remove boxes that are mostly contained inside larger person boxes
+    ENABLED: true
+    ORDER: 5
+    CONTAINMENT_THRESHOLD: 0.8 # Fraction of overlap required to consider a box as occluded/contained (0.0-1.0)
+  INFERENCE_FACE: # Stage 6: Run face detection and append results as class 80 to filtered labels
+    ENABLED: true
+    ORDER: 6
+    FACE_CLASS_ID: 80 # Class ID assigned to face detections (80 = after COCO 0-79)
+    BATCH_SIZE: 32 # Batch size for face inference (overrides GLOBAL.BATCH_SIZE)
+  INFERENCE_POSE: # Stage 7: Run pose estimation and save YOLO pose labels with 17 keypoints
+    ENABLED: true
+    ORDER: 7
+    IMGSZ: 736 # Input image size for pose inference (higher = more accurate, slower)
+  FORMAT_DATASET: # Stage 8: Organize output into train dataset structure (images + labels + labels-GT)
+    ENABLED: true
+    ORDER: 8
+    OUTPUT_DIR: jrdb_train_dataset # Output root directory for formatted dataset
+    SPLIT: train # Split name (creates subdirectory, e.g. train, val)
+    SYMLINK: false # Use symlinks instead of copying files
+  VISUALIZE: # Stage 9: Draw detection/pose annotations on sampled images for visual inspection
+    ENABLED: true
+    ORDER: 9
+    MODE: both # Visualization mode: "detection", "pose", or "both"
+    SKIP: 3 # Visualize every Nth image (e.g. 3 = skip 2, draw 1)
+  GENERATE_VIDEOS: # Stage 10: Generate annotated MP4 videos with detection + face + pose overlays
+    ENABLED: true
+    ORDER: 10
+    FPS: 15 # Frames per second for output videos
+    NUM_VIDEOS: 10 # Number of video sequences to process (0 = all sequences)
+  ANALYZE: # Stage 11: Print overlap statistics and person box size distribution
+    ENABLED: true
+    ORDER: 11
