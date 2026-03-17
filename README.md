@@ -133,10 +133,7 @@ python run.py --config /path/to/custom.yaml
 | ![Bytes-cafe with overlays](assets/sample_cafe.jpg) | ![Tressider with overlays](assets/sample_crowded.jpg) |
 
 ### Video Demo (Cubberly Auditorium)
-
-<video src="assets/sample_video.mp4" controls width="752">
-  Video: assets/sample_video.mp4
-</video>
+![Detection + Pose video demo](assets/sample_video.gif)
 
 ## Pipeline Stages
 
